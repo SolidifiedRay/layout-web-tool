@@ -35,16 +35,28 @@ def generate_artifact_rules(changes):
   Generate Artifact Rules given which files have been added, which have been removed,
   which have been modified, and which have remained unchanged. 
   '''
-  artifact_rules = []
+  artifact_rules = {
+    'expected_materials': [],
+    'expected_products': []
+  }
+  # missing rules for MATCH since we don't have the information for the previous step
   for file in changes['unchanged']:
-    artifact_rules.append(["ALLOW", file])
+    artifact_rules['expected_materials'].append(["ALLOW", file])
   for file in changes['modified']:
-    artifact_rules.append(["MODIFY", file])
-  for file in changes['added']:
-    artifact_rules.append(["CREATE", file])
+    artifact_rules['expected_materials'].append(["ALLOW", file])
   for file in changes['removed']:
-    artifact_rules.append(["DELETE", file])
-  artifact_rules.append(["DISALLOW", "*"])
+    artifact_rules['expected_materials'].append(["ALLOW", file])
+  artifact_rules['expected_materials'].append(["DISALLOW", "*"])
+
+  for file in changes['unchanged']:
+    artifact_rules['expected_products'].append(["ALLOW", file])
+  for file in changes['modified']:
+    artifact_rules['expected_products'].append(["MODIFY", file])
+  for file in changes['added']:
+    artifact_rules['expected_products'].append(["CREATE", file])
+  for file in changes['removed']:
+    artifact_rules['expected_products'].append(["DELETE", file])
+  artifact_rules['expected_products'].append(["DISALLOW", "*"])
 
   return artifact_rules
 
@@ -76,15 +88,24 @@ class Test(unittest.TestCase):
         changes_of_two_snapshots(self.before, self.after))
 
   def test_generate_artifact_rules(self):
-    artifact_rules = [
-      ['ALLOW', 'one.tgz'],
-      ['ALLOW', 'bar/bat/four.tgz'],
-      ['MODIFY', 'foo/two.tgz'],
-      ['CREATE', 'five.txt'],
-      ['CREATE', 'baz/six.tgz'],
-      ['DELETE', 'three.txt'],
-      ['DISALLOW', '*']
-    ]
+    artifact_rules = {
+      'expected_materials': [
+        ['ALLOW', 'one.tgz'],
+        ['ALLOW', 'bar/bat/four.tgz'],
+        ['ALLOW', 'foo/two.tgz'],
+        ['ALLOW', 'three.txt'],
+        ['DISALLOW', '*']
+      ],
+      'expected_products': [
+        ['ALLOW', 'one.tgz'],
+        ['ALLOW', 'bar/bat/four.tgz'],
+        ['MODIFY', 'foo/two.tgz'],
+        ['CREATE', 'five.txt'],
+        ['CREATE', 'baz/six.tgz'],
+        ['DELETE', 'three.txt'],
+        ['DISALLOW', '*']
+      ]
+    }
     changes = changes_of_two_snapshots(self.before, self.after)
     self.assertEqual(artifact_rules,
       generate_artifact_rules(changes))
