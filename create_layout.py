@@ -91,34 +91,84 @@ import os
 import in_toto.models.link
 import in_toto.models.layout
 
-def create_material_rules(links, index):
+def snapshot(before_dict, after_dict):
+  '''before_after_snapshot is a simple function that returns which files were
+    unchanged, modified, added or removed from an input dictionary (before_dict)
+    and an output dictionary (after_dict). Both these dictionaries have file
+    names as the keys and their hashes as the values.'''
+
+  unchanged_files = []
+  modified_files = []
+  added_files = []
+  removed_files = []
+  for key in before_dict:
+    if key in after_dict:
+      if before_dict[key] == after_dict[key]:
+        # Matching the hashes to check if file was unchanged
+        unchanged_files.append(key)
+      else:
+        modified_files.append(key)
+    else:
+      removed_files.append(key)
+  for key in after_dict:
+    if key not in before_dict:
+      # Looking for new files
+      added_files.append(key)
+
+  # Returning the snapshot of the new file system
+  return (sorted(unchanged_files), sorted(modified_files), sorted(added_files),
+  sorted(removed_files))
+
+def create_material_rules(current_snapshot, links, index):
   """Create generic material rules (3 variants)
 
   * MATCH available materials with products from previous step (links must be an
   ordered list) and
-  * ALLOW available materials if it is the first step in the
-  list
+  * ALLOW available materials
+  * DELETE removed materials
+  * DISALLOW everything else
+
   Returns a list of material rules
   NOTE: Read header docstring for ideas for more complexity.  """
 
   expected_materials = []
 
-  if index == 0:
-    for material_name in links[index].materials.keys():
-      expected_materials.append(["ALLOW", material_name])
-    expected_materials.append(["DISALLOW", "*"])
+  if index != 0:
+    pre_step_name = links[index-1].name
+    pre_snapshot = snapshot(links[index-1].materials, links[index-1].products)
 
+    for i in range(3):
+      # previous_snapshot[3] are removed files, which will not be included
+      # in previous step's products
+
+      # Assume all products from the previous step are materials in
+      # the current step
+      for file in pre_snapshot[i]:
+        expected_materials.append(
+          ["MATCH", file, "WITH", "PRODUCTS", "FROM", pre_step_name])
   else:
-    expected_materials = [
-        ["MATCH", "*", "WITH", "PRODUCTS", "FROM", links[index - 1].name]]
+    for file in current_snapshot[0]:
+      # ALLOW unchanged files
+      expected_materials.append(["ALLOW", file])
+    for file in current_snapshot[1]:
+      # ALLOW modified files
+      expected_materials.append(["ALLOW", file])
+  
+  for file in current_snapshot[3]:
+    # DELETE removed files
+    expected_materials.append(["DELETE", file])
+    
+  expected_materials.append(["DISALLOW", "*"])
 
   return expected_materials
 
 
-def create_product_rules(links, index):
-  """Create generic material rules (2 variants)
+def create_product_rules(current_snapshot):
+  """Create generic material rules (1 variant)
 
   * ALLOW available products
+  * MODIFY changed products
+  * CREATE added products
   * DISALLOW everything else
 
   Returns a list of product rules
@@ -127,9 +177,16 @@ def create_product_rules(links, index):
 
   expected_products = []
 
-  for product_name in links[index].materials.keys():
-    expected_products.append(["ALLOW", product_name])
-
+  for file in current_snapshot[0]:
+    # ALLOW unchanged files
+    expected_products.append(["ALLOW", file])
+  for file in current_snapshot[1]:
+    # MODIFY modified files
+    expected_products.append(["MODIFY", file])
+  for file in current_snapshot[2]:
+    # CREATE added files
+    expected_products.append(["CREATE", file])
+    
   expected_products.append(["DISALLOW", "*"])
 
   return expected_products
@@ -145,9 +202,10 @@ def create_layout_from_ordered_links(links):
 
   for index, link in enumerate(links):
     step_name = link.name
+    current_snapshot = snapshot(links[index].materials, links[index].products)
     step = in_toto.models.layout.Step(name=step_name,
-      expected_materials=create_material_rules(links, index),
-      expected_products=create_product_rules(links, index),
+      expected_materials=create_material_rules(current_snapshot, links, index),
+      expected_products=create_product_rules(current_snapshot),
       expected_command=link.command)
 
     layout.steps.append(step)
