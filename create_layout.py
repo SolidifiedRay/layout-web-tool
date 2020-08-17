@@ -163,14 +163,8 @@ def create_material_rules(current_snapshot, links, index):
   return expected_materials
 
 
-<<<<<<< HEAD
 def create_product_rules(current_snapshot):
   """Create generic product rules (1 variant)
-=======
-def create_product_rules(links, index):
-  """Create generic product rules (2 variants)
->>>>>>> cefba938c1e03ea8da206ec7fb0c6d8a62f1fc1b
-
   * ALLOW available products
   * MODIFY changed products
   * CREATE added products
