@@ -92,7 +92,7 @@ import in_toto.models.link
 import in_toto.models.layout
 
 def snapshot(before_dict, after_dict):
-  '''before_after_snapshot is a simple function that returns which files were
+  '''A simple function that returns which files were
     unchanged, modified, added or removed from an input dictionary (before_dict)
     and an output dictionary (after_dict). Both these dictionaries have file
     names as the keys and their hashes as the values.'''
@@ -117,10 +117,13 @@ def snapshot(before_dict, after_dict):
 
   # Returning the snapshot of the new file system
   return (sorted(unchanged_files), sorted(modified_files), sorted(added_files),
-  sorted(removed_files))
+      sorted(removed_files))
 
 def create_material_rules(current_snapshot, links, index):
   """Create generic material rules (3 variants)
+  current_snapshot:  the file structure of the current in-toto link object
+  links: an ordered list of in-toto link objects
+  index: the index of the current in-toto link object
 
   * MATCH available materials with products from previous step (links must be an
   ordered list) and
@@ -129,7 +132,8 @@ def create_material_rules(current_snapshot, links, index):
   * DISALLOW everything else
 
   Returns a list of material rules
-  NOTE: Read header docstring for ideas for more complexity.  """
+  NOTE: Read header docstring for ideas for more complexity.  
+  """
 
   expected_materials = []
 
@@ -165,6 +169,8 @@ def create_material_rules(current_snapshot, links, index):
 
 def create_product_rules(current_snapshot):
   """Create generic product rules (1 variant)
+  links: an ordered list of in-toto link objects
+  
   * ALLOW available products
   * MODIFY changed products
   * CREATE added products
